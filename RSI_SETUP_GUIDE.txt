@@ -1,0 +1,178 @@
+================================================================================
+GOOGLE SHEETS SETUP GUIDE — Multi-Timeframe RSI + Divergence Engine
+================================================================================
+For: STOCKS SELECTION SHEET .xlsx (uploaded to Google Drive)
+
+QUICK SETUP (5 minutes):
+--------------------------------------------------------------------------------
+1. Upload Excel file to Google Drive
+2. Open with Google Sheets (right-click > Open with > Google Sheets)
+3. Extensions > Apps Script
+4. Copy ALL code from RSI_GOOGLEFINANCE_SCRIPT.gs into the Apps Script editor
+5. Save (Ctrl+S)
+6. Back in the sheet, refresh — wait 1-2 minutes for data to load
+
+================================================================================
+STEP 1: UPLOAD & OPEN
+================================================================================
+- Go to drive.google.com
+- Upload "STOCKS SELECTION SHEET .xlsx"
+- Right-click the file > Open with > Google Sheets
+- This enables GOOGLEFINANCE live data (does not work in desktop Excel)
+
+================================================================================
+STEP 2: ADD APPS SCRIPT (Required for RSI)
+================================================================================
+Google Sheets has no built-in RSI function. You must add one.
+
+1. In Google Sheets: Extensions > Apps Script
+2. Delete any existing code (default Code.gs)
+3. Open RSI_GOOGLEFINANCE_SCRIPT.gs from this folder
+   Copy ALL the code from that file
+4. Paste everything into the Apps Script editor
+5. Click Save (disk icon) or Ctrl+S
+6. Close the Apps Script tab
+
+WHAT THE SCRIPT ADDS:
+- Custom RSI() function (14-period by default)
+- detectDivergence() function (detects bearish/bullish patterns)
+- setup_RSI_Columns() — auto-adds 14 new columns with formulas
+- refreshAllRSI() — recalculates all data
+
+================================================================================
+STEP 3: ADD RSI COLUMNS
+================================================================================
+After saving the Apps Script:
+
+1. Go back to your Google Sheet
+2. Press F5 to refresh (or Ctrl+R)
+3. Wait 1-2 minutes — GOOGLEFINANCE fetches data for 213 stocks x 4 timeframes
+   You will see "Loading..." cells — this is normal
+4. After data loads, new columns appear starting at column AA:
+
+   AA: RSI_1HR    — 14-period RSI on hourly data (last 90 days)
+   AB: DIV_1HR    — Divergence signal on hourly
+   AC: RSI_DAY    — 14-period RSI on daily data (last 365 days)
+   AD: DIV_DAY    — Divergence signal on daily
+   AE: RSI_WEEK   — 14-period RSI on weekly data (last 730 days)
+   AF: DIV_WEEK   — Divergence signal on weekly
+   AG: RSI_MONTH  — 14-period RSI on monthly data (last 1825 days)
+   AH: DIV_MONTH  — Divergence signal on monthly
+   AI: BEAR_SCORE — Bearish score (0-6)
+   AJ: BULL_SCORE — Bullish score (0-6)
+   AK: TRADE_SIGNAL — BEARISH / BULLISH / NEUTRAL
+   AL: BUY_ZONE   — "BUY ZONE - Oversold" when RSI_WEEK < 30
+   AM: SELL_ZONE  — "SELL ZONE - Overbought" when RSI_WEEK > 70
+   AN: STOP_LOSS  — Suggested stop loss (CMP x 0.98)
+
+================================================================================
+STEP 4: CONDITIONAL FORMATTING (color-code signals)
+================================================================================
+1. Select column AK (TRADE_SIGNAL)
+2. Format > Conditional formatting
+3. Add these 3 rules:
+
+   Rule 1:
+     "Text contains" → "BEARISH"
+     Fill: Red (#FF6B6B)
+     Text: White
+
+   Rule 2:
+     "Text contains" → "BULLISH"
+     Fill: Green (#51CF66)
+     Text: White
+
+   Rule 3:
+     "Text contains" → "NEUTRAL"
+     Fill: Gray (#CED4DA)
+     Text: Black
+
+4. Apply to range: AK2:AK214
+
+================================================================================
+STEP 5: FILTER FOR ACTIONABLE STOCKS
+================================================================================
+1. Select row 1 (headers)
+2. Data > Create a filter
+3. Click the filter arrow on TRADE_SIGNAL (column AK)
+4. Filter to show only: BEARISH or BULLISH (uncheck NEUTRAL)
+5. Further filter:
+   - For BEARISH: RSI_WEEK < 45
+   - For BULLISH: RSI_WEEK > 55
+
+================================================================================
+HOW TO READ THE SIGNALS:
+================================================================================
+TRADE_SIGNAL RULES:
+  BEARISH: BEAR_SCORE > BULL_SCORE + 3  AND  RSI_WEEK < 45
+           → Higher timeframe bearish pressure confirmed by weekly weakness
+           → Consider: Short positions, PUT options, exiting longs
+
+  BULLISH: BULL_SCORE > BEAR_SCORE + 3  AND  RSI_WEEK > 55
+           → Higher timeframe bullish pressure confirmed by weekly strength
+           → Consider: Long positions, CALL options, adding to longs
+
+  NEUTRAL: No clear directional bias across timeframes
+           → Wait for signal to develop
+
+DIVERGENCE MEANINGS:
+  3-DRIVE BEARISH N-DIV:
+    Most severe bearish signal — price made 3 higher highs,
+    RSI made 3 lower highs → exhaustion top likely
+    → Strong short candidate
+
+  BEARISH DIVERGENCE:
+    Price made a higher high, RSI made a lower high
+    → Momentum failing despite price rise → bearish
+
+  3-DRIVE BULLISH P-DIV:
+    Most bullish signal — price made 3 lower lows,
+    RSI made 3 higher lows �� exhaustion bottom likely
+    → Strong long candidate
+
+  BULLISH DIVERGENCE:
+    Price made a lower low, RSI made a higher low
+    → Selling pressure waning, momentum building → bullish
+
+RSI ZONES:
+  > 70  Overbought  — Starting to look toppy, watch for reversal
+  55-70 Bullish zone — Trend intact but getting extended
+  45-55 Neutral    — No clear bias
+  30-45 Bearish zone — Trend weak, watch for breakdown
+  < 30  Oversold   — Mean-reversion bounce candidate
+
+================================================================================
+HOW TO REFRESH DATA:
+================================================================================
+- GOOGLEFINANCE updates every ~1-2 minutes automatically
+- To force recalculate: F5 (refresh browser)
+- To add new stocks: add symbols in column A, then run Extensions > Apps Script >
+  Run > setup_RSI_Columns() again
+
+================================================================================
+TROUBLESHOOTING:
+================================================================================
+"Loading..." stays forever:
+  → GOOGLEFINANCE has rate limits. Wait 5 minutes and refresh.
+  → Some illiquid stocks may show #N/A — normal for micro-cap NSE stocks
+
+"#N/A" errors:
+  → GOOGLEFINANCE doesn't support that symbol. Verify the NSE ticker is correct.
+  → NSE symbols should be entered WITHOUT the :NS suffix in column A
+
+Script error on run:
+  → Make sure you copied ALL the code from RSI_GOOGLEFINANCE_SCRIPT.gs
+  → Delete the default function myFunction() if it exists
+  → Save, then try again
+
+Sheet is slow:
+  → 213 stocks x 4 timeframes = ~850 GOOGLEFINANCE calls
+  → This is expected. Consider filtering to top 50 most liquid stocks.
+
+================================================================================
+FILES IN THIS PACKAGE:
+================================================================================
+rsi_scanner.py              — Python scanner (works offline, uses yfinance)
+sector_analyzer.py         — Sector rotation + breadth analysis
+RSI_GOOGLEFINANCE_SCRIPT.gs — Google Apps Script (paste into Extensions > Apps Script)
+RSI_SETUP_GUIDE.txt        — This file

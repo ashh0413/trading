@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nifty 213 Scanner Dashboard</title>
+<style>
+:root {
+  --bg:#0a0a0a; --surface:#141414; --surface2:#1e1e1e; --border:#2a2a2a;
+  --text:#e0e0e0; --muted:#888; --accent:#00e5ff; --green:#00c853;
+  --yellow:#ffd740; --red:#ff1744; --purple:#d500f9;
+  --font: 'Segoe UI', system-ui, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); padding: 20px; }
+header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+h1 { color: var(--accent); font-size: 1.5rem; letter-spacing: 1px; }
+.timestamp { color: var(--muted); font-size: 0.85rem; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.card-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; }
+.card-value { font-size: 2rem; font-weight: 700; }
+.card.green .card-value { color: var(--green); }
+.card.red .card-value { color: var(--red); }
+.card.yellow .card-value { color: var(--yellow); }
+.card.purple .card-value { color: var(--purple); }
+.card.accent .card-value { color: var(--accent); }
+
+.controls { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+select, button { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; font-family: var(--font); font-size: 0.9rem; cursor: pointer; }
+select:hover, button:hover { border-color: var(--accent); }
+button.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+input[type="search"] { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; font-family: var(--font); font-size: 0.9rem; width: 240px; }
+input[type="search"]:focus { outline: none; border-color: var(--accent); }
+
+.badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.5px; }
+.badge-strong-buy  { background:#004d00; color:#00c853; }
+.badge-buy         { background:#005000; color:#69f0ae; }
+.badge-neutral     { background:#3d2e00; color:#ffd740; }
+.badge-sell        { background:#4a1500; color:#ff6e40; }
+.badge-strong-sell { background:#5a0000; color:#ff1744; }
+
+table { width: 100%; border-collapse: collapse; }
+thead th { background: var(--surface); color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px; padding: 10px 12px; text-align: left; border-bottom: 2px solid var(--border); cursor: pointer; user-select: none; }
+thead th:hover { color: var(--accent); }
+tbody tr { border-bottom: 1px solid #1a1a1a; transition: background 0.15s; }
+tbody tr:hover { background: var(--surface); }
+tbody td { padding: 10px 12px; font-size: 0.88rem; }
+tbody td:nth-child(2) { font-weight: 600; }
+tbody td:nth-child(3) { font-weight: 700; }
+.sector-tag { font-size: 0.72rem; color: var(--muted); }
+
+.pagination { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 20px; }
+.pagination button { min-width: 36px; }
+.pagination .info { color: var(--muted); font-size: 0.85rem; padding: 0 12px; }
+
+.score-bar { width: 60px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 8px; }
+.score-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+
+.hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>NIFTY 213 — LIVE SCANNER DASHBOARD</h1>
+  <span class="timestamp" id="ts"></span>
+</header>
+
+<div class="stats" id="stats"></div>
+
+<div class="controls">
+  <select id="filterSignal"><option value="">All Signals</option><option value="STRONG BUY">Strong Buy</option><option value="BUY">Buy</option><option value="NEUTRAL">Neutral</option><option value="SELL">Sell</option><option value="STRONG SELL">Strong Sell</option></select>
+  <select id="filterSector"><option value="">All Sectors</option></select>
+  <select id="sortBy"><option value="score-desc">Score ↓</option><option value="score-asc">Score ↑</option><option value="rsi-asc">RSI ↑</option><option value="rsi-desc">RSI ↓</option><option value="symbol-asc">Symbol A-Z</option></select>
+  <input type="search" id="search" placeholder="Search symbol...">
+  <span style="color:var(--muted);font-size:0.85rem" id="countLabel"></span>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th onclick="sort('rank')">#</th>
+      <th onclick="sort('symbol')">Symbol</th>
+      <th onclick="sort('score')">Score</th>
+      <th onclick="sort('rsi')">RSI</th>
+      <th onclick="sort('macd')">MACD</th>
+      <th onclick="sort('vol')">Vol Ratio</th>
+      <th onclick="sort('sma')">SMA5/20</th>
+      <th onclick="sort('cmp')">CMP</th>
+      <th onclick="sort('sector')">Sector</th>
+      <th onclick="sort('signal')">Signal</th>
+    </tr>
+  </thead>
+  <tbody id="tbody"></tbody>
+</table>
+
+<div class="pagination">
+  <button onclick="prevPage()">‹</button>
+  <span class="info" id="pageInfo"></span>
+  <button onclick="nextPage()">›</button>
+</div>
+
+<script>
+let all = [], filtered = [], page = 1, PAGE = 25, sortCol = "score", sortDir = -1;
+
+function scoreColor(v) {
+  if (v >= 80) return "#00c853";
+  if (v >= 65) return "#69f0ae";
+  if (v >= 50) return "#ffd740";
+  if (v >= 35) return "#ff6e40";
+  return "#ff1744";
+}
+
+function signalBadge(s) {
+  const map = {
+    "STRONG BUY":"badge-strong-buy","BUY":"badge-buy","NEUTRAL":"badge-neutral",
+    "SELL":"badge-sell","STRONG SELL":"badge-strong-sell"
+  };
+  return `<span class="badge ${map[s]||"badge-neutral"}">${s}</span>`;
+}
+
+function renderStats(data) {
+  const total = data.length;
+  const bullish = data.filter(d => d.signal.includes("BUY")).length;
+  const bearish = data.filter(d => d.signal.includes("SELL")).length;
+  const neutral = total - bullish - bearish;
+  const avgScore = (data.reduce((a,d)=>a+d.score,0)/total).toFixed(1);
+  const strongBuy = data.filter(d => d.signal === "STRONG BUY").length;
+  const strongSell = data.filter(d => d.signal === "STRONG SELL").length;
+  document.getElementById("ts").textContent = data[0]?.timestamp || "";
+  document.getElementById("stats").innerHTML = `
+    <div class="card accent"><div class="card-label">Total Scanned</div><div class="card-value">${total}</div></div>
+    <div class="card green"><div class="card-label">Avg Score</div><div class="card-value">${avgScore}</div></div>
+    <div class="card green"><div class="card-label">Strong Buy</div><div class="card-value">${strongBuy}</div></div>
+    <div class="card yellow"><div class="card-label">Neutral</div><div class="card-value">${neutral}</div></div>
+    <div class="card red"><div class="card-label">Strong Sell</div><div class="card-value">${strongSell}</div></div>
+    <div class="card red"><div class="card-label">Bearish</div><div class="card-value">${bearish}</div></div>`;
+}
+
+function renderTable(data) {
+  const start = (page-1)*PAGE, end = start+PAGE, pageData = data.slice(start,end);
+  const tbody = document.getElementById("tbody");
+  if (!pageData.length) { tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--muted)">No results</td></tr>`; return; }
+  tbody.innerHTML = pageData.map(d => {
+    const smaRatio = d.sma5 && d.sma20 ? (d.sma5/d.sma20).toFixed(2) : "-";
+    return `<tr>
+      <td>${d.rank}</td>
+      <td>${d.symbol}</td>
+      <td><span style="color:${scoreColor(d.score)}">${d.score}</span>
+        <div class="score-bar"><div class="score-fill" style="width:${d.score}%;background:${scoreColor(d.score)}"></div></div>
+      </td>
+      <td>${d.rsi ?? "-"}</td>
+      <td>${d.macd != null ? d.macd.toFixed(2) : "-"}</td>
+      <td>${d.volRatio ?? "-"}</td>
+      <td>${smaRatio}</td>
+      <td>${d.cmp ?? "-"}</td>
+      <td class="sector-tag">${d.sector || "-"}</td>
+      <td>${signalBadge(d.signal)}</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("pageInfo").textContent = `${start+1}-${Math.min(end,data.length)} of ${data.length}`;
+  document.getElementById("countLabel").textContent = `Showing ${data.length} stocks`;
+}
+
+function apply() {
+  const fs = document.getElementById("filterSignal").value;
+  const sec = document.getElementById("filterSector").value;
+  const q = document.getElementById("search").value.toUpperCase();
+  filtered = all.filter(d =>
+    (!fs || d.signal === fs) && (!sec || d.sector === sec) &&
+    (!q || d.symbol.includes(q))
+  );
+  page = 1;
+  renderTable(filtered);
+}
+
+function sort(col) {
+  if (sortCol === col) sortDir *= -1; else { sortCol = col; sortDir = -1; }
+  const colMap = {score:"score",symbol:"symbol",rsi:"rsi",macd:"macd",vol:"volRatio",sma:"sma5",cmp:"cmp",sector:"sector",signal:"signal"};
+  const k = colMap[col] || col;
+  filtered.sort((a,b) => {
+    const va = a[k] ?? -999, vb = b[k] ?? -999;
+    return typeof va === "string" ? va.localeCompare(vb) * sortDir : (va-vb)*sortDir;
+  });
+  page = 1;
+  renderTable(filtered);
+}
+
+function prevPage() { if(page>1){page--;renderTable(filtered);} }
+function nextPage() { if(page*PAGE<filtered.length){page++;renderTable(filtered);} }
+
+document.getElementById("filterSignal").addEventListener("change", apply);
+document.getElementById("filterSector").addEventListener("change", apply);
+document.getElementById("sortBy").addEventListener("change", e => sort(e.target.value.replace("-desc","").replace("-asc","")));
+document.getElementById("search").addEventListener("input", apply);
+
+fetch("scored_results.json")
+  .then(r => r.json())
+  .then(raw => {
+    const data = raw.scored || raw.stocks || raw.results || Object.values(raw);
+    all = data.map((s,i) => ({
+      symbol: s.symbol||s.ticker||"", score: s.composite_score||s.score||50,
+      rsi_d: s.rsi_day??s.rsi_14??null,
+      rsi_w: s.rsi_week??null,
+      rsi_m: s.rsi_month??null,
+      macd: s.macd_hist??null, volRatio: s.volume_ratio??null,
+      sma5: s.sma_5??null, sma20: s.sma_20??null,
+      cmp: s.cmp||s.price||null, sector: s.sector||"", signal: s.signal||"NEUTRAL",
+      timestamp: s.timestamp||raw.timestamp||""
+    })).sort((a,b) => b.score-a.score).map((d,i) => ({...d, rank:i+1}));
+    const sectors = [...new Set(all.map(d=>d.sector))].sort();
+    const sel = document.getElementById("filterSector");
+    sectors.forEach(s => { const o=document.createElement("option"); o.value=s; o.textContent=s; sel.appendChild(o); });
+    renderStats(all); renderTable(all);
+  })
+  .catch(() => {
+    document.getElementById("tbody").innerHTML = `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--red)">scanner_results.json not found. Run scanner_v2.py first.</td></tr>`;
+  });
+</script>
+</body>
+</html>
